@@ -4,7 +4,7 @@
 # All Rights Reserved.                               *
 #                                                    *
 #*****************************************************
-""" A sample lambda for object detection"""
+""" A sample lambda for image classification"""
 from threading import Thread, Event
 import os
 import json
@@ -75,7 +75,7 @@ class LocalDisplay(Thread):
 def greengrass_infinite_infer_run():
     """ Entry point of the lambda function"""
     try:
-        # This object detection model is implemented as single shot detector (ssd), since
+        # This model is implemented as single shot detector (ssd), since
         # the number of labels is small we create a dictionary that will help us convert
         # the machine labels to human readable labels.
         model_type = 'ssd'
@@ -95,9 +95,9 @@ def greengrass_infinite_infer_run():
         # path is required.
         model_path = '/opt/awscam/artifacts/mxnet_deploy_ssd_resnet50_300_FP16_FUSED.xml'
         # Load the model onto the GPU.
-        client.publish(topic=iot_topic, payload='Loading object detection model')
+        client.publish(topic=iot_topic, payload='Loading model')
         model = awscam.Model(model_path, {'GPU': 1})
-        client.publish(topic=iot_topic, payload='Object detection model loaded')
+        client.publish(topic=iot_topic, payload=' model loaded')
         # Set the threshold for detection
         detection_threshold = 0.25
         # The height and width of the training set images
@@ -154,6 +154,6 @@ def greengrass_infinite_infer_run():
             # Send results to the cloud
             client.publish(topic=iot_topic, payload=json.dumps(cloud_output))
     except Exception as ex:
-        client.publish(topic=iot_topic, payload='Error in object detection lambda: {}'.format(ex))
+        client.publish(topic=iot_topic, payload='Error in image classification lambda: {}'.format(ex))
 
 greengrass_infinite_infer_run()
