@@ -1,6 +1,6 @@
 #*****************************************************
 #                                                    *
-# Copyright 2018 Amazon.com, Inc. or its affiliates. *
+# Copyright 2020 Amazon.com, Inc. or its affiliates. *
 # All Rights Reserved.                               *
 #                                                    *
 #*****************************************************
@@ -12,6 +12,7 @@ import numpy as np
 import awscam
 import cv2
 import greengrasssdk
+import mo
 
 class LocalDisplay(Thread):
     """ Class for facilitating the local display of inference results
@@ -23,7 +24,7 @@ class LocalDisplay(Thread):
     """
     def __init__(self, resolution):
         """ resolution - Desired resolution of the project stream """
-        # Initialize the base class, so that the object can run on its own
+        # Initialize the base class, so that the image can run on its own
         # thread.
         super(LocalDisplay, self).__init__()
         # List of valid resolutions
@@ -75,15 +76,9 @@ class LocalDisplay(Thread):
 def greengrass_infinite_infer_run():
     """ Entry point of the lambda function"""
     try:
-        # This model is implemented as single shot detector (ssd), since
-        # the number of labels is small we create a dictionary that will help us convert
-        # the machine labels to human readable labels.
-        model_type = 'ssd'
-        output_map = {1: 'aeroplane', 2: 'bicycle', 3: 'bird', 4: 'boat', 5: 'bottle', 6: 'bus',
-                      7 : 'car', 8 : 'cat', 9 : 'chair', 10 : 'cow', 11 : 'dinning table',
-                      12 : 'dog', 13 : 'horse', 14 : 'motorbike', 15 : 'person',
-                      16 : 'pottedplant', 17 : 'sheep', 18 : 'sofa', 19 : 'train',
-                      20 : 'tvmonitor'}
+        model_type = 'classification'
+	    model_name = 'image-classification'
+	    output_map = {0: 'weed',1:'grass'}
         # Create an IoT client for sending to messages to the cloud.
         client = greengrasssdk.client('iot-data')
         iot_topic = '$aws/things/{}/infer'.format(os.environ['AWS_IOT_THING_NAME'])
@@ -93,16 +88,17 @@ def greengrass_infinite_infer_run():
         local_display.start()
         # The sample projects come with optimized artifacts, hence only the artifact
         # path is required.
-        model_path = '/opt/awscam/artifacts/mxnet_deploy_ssd_resnet50_300_FP16_FUSED.xml'
+	    #error, model_path = mo.optimize(model_name,224,224,aux_inputs={'--epoch':10})
+        model_path = '/opt/awscam/artifacts/image-classification.xml'
         # Load the model onto the GPU.
-        client.publish(topic=iot_topic, payload='Loading model')
+        client.publish(topic=iot_topic, payload='Loading image classification model')
         model = awscam.Model(model_path, {'GPU': 1})
-        client.publish(topic=iot_topic, payload=' model loaded')
-        # Set the threshold for detection
-        detection_threshold = 0.25
+        client.publish(topic=iot_topic, payload='Image classification model loaded')
+        # Set the threshold for classification
+        classification_threshold = 0.25
         # The height and width of the training set images
-        input_height = 300
-        input_width = 300
+        input_height = 224
+        input_width = 224
         # Do inference until the lambda is killed.
         while True:
             # Get a frame from the video stream
@@ -123,30 +119,9 @@ def greengrass_infinite_infer_run():
             xscale = float(frame.shape[1]/input_width)
             # Dictionary to be filled with labels and probabilities for MQTT
             cloud_output = {}
-            # Get the detected objects and probabilities
+            # Get the classified images and probabilities
             for obj in parsed_inference_results[model_type]:
-                if obj['prob'] > detection_threshold:
-                    # Add bounding boxes to full resolution frame
-                    xmin = int(xscale * obj['xmin']) \
-                           + int((obj['xmin'] - input_width/2) + input_width/2)
-                    ymin = int(yscale * obj['ymin'])
-                    xmax = int(xscale * obj['xmax']) \
-                           + int((obj['xmax'] - input_width/2) + input_width/2)
-                    ymax = int(yscale * obj['ymax'])
-                    # See https://docs.opencv.org/3.4.1/d6/d6e/group__imgproc__draw.html
-                    # for more information about the cv2.rectangle method.
-                    # Method signature: image, point1, point2, color, and tickness.
-                    cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), (255, 165, 20), 10)
-                    # Amount to offset the label/probability text above the bounding box.
-                    text_offset = 15
-                    # See https://docs.opencv.org/3.4.1/d6/d6e/group__imgproc__draw.html
-                    # for more information about the cv2.putText method.
-                    # Method signature: image, text, origin, font face, font scale, color,
-                    # and tickness
-                    cv2.putText(frame, "{}: {:.2f}%".format(output_map[obj['label']],
-                                                               obj['prob'] * 100),
-                                (xmin, ymin-text_offset),
-                                cv2.FONT_HERSHEY_SIMPLEX, 2.5, (255, 165, 20), 6)
+                if obj['prob'] > classification_threshold:
                     # Store label and probability to send to cloud
                     cloud_output[output_map[obj['label']]] = obj['prob']
             # Set the next frame in the local display stream.
