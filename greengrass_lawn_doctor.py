@@ -77,8 +77,8 @@ def greengrass_infinite_infer_run():
     """ Entry point of the lambda function"""
     try:
         model_type = 'classification'
-	    model_name = 'image-classification'
-	    output_map = {0: 'weed',1:'grass'}
+	model_name = 'image-classification'
+	output_map = {0: 'weed',1:'grass'}
         # Create an IoT client for sending to messages to the cloud.
         client = greengrasssdk.client('iot-data')
         iot_topic = '$aws/things/{}/infer'.format(os.environ['AWS_IOT_THING_NAME'])
