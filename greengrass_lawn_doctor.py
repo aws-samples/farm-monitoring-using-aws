@@ -1,4 +1,4 @@
-#*****************************************************
+    #*****************************************************
 #                                                    *
 # Copyright 2020 Amazon.com, Inc. or its affiliates. *
 # All Rights Reserved.                               *
@@ -77,8 +77,8 @@ def greengrass_infinite_infer_run():
     """ Entry point of the lambda function"""
     try:
         model_type = 'classification'
-	    model_name = 'image-classification'
-	    output_map = {0: 'weed',1:'grass'}
+	model_name = 'image-classification'
+	output_map = {0: 'weed',1:'grass'}
         # Create an IoT client for sending to messages to the cloud.
         client = greengrasssdk.client('iot-data')
         iot_topic = '$aws/things/{}/infer'.format(os.environ['AWS_IOT_THING_NAME'])
@@ -86,19 +86,17 @@ def greengrass_infinite_infer_run():
         # file that the image can be rendered locally.
         local_display = LocalDisplay('480p')
         local_display.start()
-        # The sample projects come with optimized artifacts, hence only the artifact
-        # path is required.
-        model_path = '/opt/awscam/artifacts/image-classification.xml'
-	error, model_path = mo.optimize(model_name,224,224,aux_inputs={'--epoch':10})
+        # model_path = '/opt/awscam/artifacts/image-classification.xml'
+        # The height and width of the training set images
+        input_height = 224
+        input_width = 224
+	error, model_path = mo.optimize(model_name,input_height,input_width,aux_inputs={'--epoch':10})
         # Load the model onto the GPU.
         client.publish(topic=iot_topic, payload='Loading image classification model')
         model = awscam.Model(model_path, {'GPU': 1})
         client.publish(topic=iot_topic, payload='Image classification model loaded')
         # Set the threshold for classification
         classification_threshold = 0.25
-        # The height and width of the training set images
-        input_height = 224
-        input_width = 224
         # Do inference until the lambda is killed.
         while True:
             # Get a frame from the video stream
